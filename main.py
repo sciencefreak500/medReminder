@@ -8,6 +8,7 @@ alarm_time = None
 interval = None
 future_times = None
 am_pm = None
+first_run = True
 
 def set_alarm():
     global alarm_time
@@ -36,6 +37,12 @@ def set_alarm():
         json.dump(alarm_dict, f)
     # start alarm clock
     future_times = get_next_times(alarm_time, int(interval))
+    
+    current_time = datetime.now()
+    current_time = current_time.replace(second=0, microsecond=0)
+    if alarm_time < current_time:
+        messagebox.showinfo("Warning", "Alarm time is in the past, updating to next alarm time")
+        alarm_time = find_next_alarm_time()
     alarm()
     
 
@@ -54,6 +61,19 @@ def get_next_times(alarm_time, interval):
     print('future times are: ', [time.strftime("%m/%d/%Y %H:%M:%S") for time in result])
     return result
 
+def find_next_alarm_time():
+    global future_times
+    global alarm_time
+    current_time = datetime.now()
+    current_time = current_time.replace(second=0, microsecond=0)
+    for time in future_times:
+        check_first_run = time > current_time if first_run else time >= current_time
+        if check_first_run:
+            alarm_time = time
+            break
+    print('next alarm time is: ', alarm_time.strftime("%m/%d/%Y %H:%M:%S"))
+    return alarm_time
+
 
 # check if its alarm time, if not tkinter will wait 60 seconds and check again
 def alarm():
@@ -61,6 +81,7 @@ def alarm():
     global interval
     global future_times
     global am_pm
+    global first_run
     if alarm_time is None or interval is None:
         # read the alarm time from the file
         with open("alarm_config.json", "r") as f:
@@ -69,6 +90,8 @@ def alarm():
             alarm_time = alarm_time.replace(second=0, microsecond=0)
             am_pm = alarm_dict["am_pm"]
             interval = alarm_dict["interval"]
+            future_times = get_next_times(alarm_time, interval)
+            alarm_time = find_next_alarm_time()
     
 
     print('alarm time is: ', alarm_time.strftime("%m/%d/%Y %H:%M:%S"))
@@ -84,7 +107,7 @@ def alarm():
     if current_time == alarm_time:
         # os.system("start alarm.mp3")
         messagebox.showinfo("Alarm", "Wake up!")
-        alarm_time += timedelta(minutes=interval)
+        alarm_time = find_next_alarm_time()
         alarm_time = alarm_time.replace(second=0, microsecond=0)
         # write new time to config
         with open("alarm_config.json", "w") as f:
@@ -97,7 +120,7 @@ def alarm():
             json.dump(alarm_dict, f)
         future_times = get_next_times(alarm_time, interval)
         alarm_time_label.config(text=alarm_time.strftime("%m/%d/%Y %H:%M:%S"))
-    
+    first_run = False
     root.after(1_000, alarm) # check per minute
 
 root = tk.Tk()
